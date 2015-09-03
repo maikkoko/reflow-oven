@@ -22,42 +22,114 @@ LiquidCrystal lcd(10, 9, 8, 7, 6, 5);
 #define BTN 11 //Button
 #define PWR 13 //Relay Switch
 
-/*** Main Code ***/ 
+/*********************************************
+/ states:
+/ 0 - Starting State
+/ 1 - Preheating (after button press)
+/ 2 - Soaking (150 - 180)
+/ 3 - Reflow (180 - 210+ - 180)
+/ 4 - Cooldown
+*********************************************/
+int state = 0; 
+
+/******* Main Code ********/ 
 
 void setup() {
   Wire.begin();
   Serial.begin(9600);
   
-  lcd.begin(16, 2);
-  lcd.print("  Press Button");
-  
-  lcd.setCursor(4, 1);
-  lcd.print("To Start!");
+  initLCD();
+  resetTime();
+  state = 0;
   
   pinMode(PWR, OUTPUT);
   digitalWrite(PWR, LOW);
 
-  pinMode(BTN, INPUT);
-    
-  resetTime();
+  pinMode(BTN, INPUT);  
 }
+
 void loop() {
   
+  printSerial(); //debugging and dev purposes
+  
   if(digitalRead(BTN) == HIGH) {
-    lcd.begin(16, 2);
-    lcd.print("STARTING...");
-    lcd.setCursor(0, 1);
-    lcd.print("Temp: ");
-    lcd.print(checkTemperature());
-    digitalWrite(PWR, HIGH);
-    
-    printSerial();
+    stateHandler();
+    printLowerLCD();
   } else {
     resetTime();
     digitalWrite(PWR, LOW);
+    
+    if (checkTemperature() >= 80) {
+      lcd.begin(16, 2);
+      lcd.print("Cooling down... ");
+      printLowerLCD(); 
+    } else {
+      initLCD();
+      state = 0;
+    }
   }
   
-  delay(500);
+  delay(800);
+}
+
+/**** State Handler Subroutine ****/
+void stateHandler() {
+  lcd.clear();
+  switch(state) {
+    case 0:
+      resetTime();
+      digitalWrite(PWR, HIGH);
+      state = 1;
+      break;
+    case 1:
+      if (checkTemperature() >= 150) {
+        resetTime();
+        state = 2;
+      } else {
+        lcd.print("Preheating..."); 
+      }
+      break;
+    case 2:
+      if (checkTemperature() >= 180) {
+        resetTime();
+        state = 3;
+      } else {
+        lcd.print("Soaking...");
+      }
+      break;
+    case 3:
+      if (checkTemperature() >= 200) {
+        digitalWrite(PWR, LOW);
+        state = 4;
+      } else {
+        lcd.print("Reflow...");
+      }
+      break;
+    case 4:
+      if (checkTemperature() >= 180) {
+        lcd.print("Reflow...");
+      } else {
+        resetTime();
+        lcd.print("Turn Off Button!");
+      }
+      break; 
+    default:
+      state = 0;
+      break;
+  }
+}
+
+void initLCD() {
+  lcd.begin(16, 2);
+  lcd.print("  Press Button");
+  lcd.setCursor(4, 1);
+  lcd.print("To Start!");
+}
+
+void printLowerLCD(){
+  lcd.setCursor(0, 1);
+  lcd.print("Temp: ");
+  lcd.print(checkTemperature());
 }
 
 /**** Serial Data Print for Development ****/
@@ -77,6 +149,7 @@ double checkTemperature() {
     return c;
   }
 }
+
 /************* RTC Subroutines ****************/
 
 void resetTime(){
