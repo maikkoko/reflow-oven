@@ -1,0 +1,8 @@
+--------------
+ REFLOW TODOS
+--------------
+
+- Fix display issues (prints gibberish sometimes upon switching)
+- Fix timing (specially on Soaking part)
+- Look for bugs and fix
+- Test on real SMDs
