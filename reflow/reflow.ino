@@ -10,6 +10,8 @@
 
 Adafruit_MAX31855 thermocouple(CLK, CS, DO);
 
+double prevTemp = 0.0; //to prevent printing 0 value
+
 /*** Definitions for RTC***/
 #define DS1307_ADDRESS 0x68
 
@@ -22,12 +24,14 @@ LiquidCrystal lcd(10, 9, 8, 7, 6, 5);
 #define BTN 11 //Button
 #define PWR 13 //Relay Switch
 
+int ctr = 0;
+
 /*********************************************
 / states:
 / 0 - Starting State
 / 1 - Preheating (after button press)
 / 2 - Soaking (150 - 180)
-/ 3 - Reflow (180 - 210+ - 180)
+/ 3 - Reflow (180 - 210)
 / 4 - Cooldown
 *********************************************/
 int state = 0; 
@@ -59,7 +63,7 @@ void loop() {
     resetTime();
     digitalWrite(PWR, LOW);
     
-    if (checkTemperature() >= 80) {
+    if (checkTemperature() >= 35) {
       lcd.begin(16, 2);
       lcd.print("Cooling down... ");
       printLowerLCD(); 
@@ -69,7 +73,7 @@ void loop() {
     }
   }
   
-  delay(800);
+  delay(500);
 }
 
 /**** State Handler Subroutine ****/
@@ -77,37 +81,53 @@ void stateHandler() {
   lcd.clear();
   switch(state) {
     case 0:
+      if (checkTemperature() >= 37) {
+        state = 1;
+      }
       resetTime();
       digitalWrite(PWR, HIGH);
-      state = 1;
+      lcd.print("Starting...");
       break;
     case 1:
       if (checkTemperature() >= 150) {
         resetTime();
         state = 2;
+      } 
+      if (printTime() <= 10) {
+        lcd.print("Insert PCB...");  
       } else {
         lcd.print("Preheating..."); 
       }
       break;
     case 2:
-      if (checkTemperature() >= 180) {
-        resetTime();
-        state = 3;
-      } else {
-        lcd.print("Soaking...");
-      }
+      if (printTime() < 100) {
+        if (checkTemperature() >= 165) {
+          digitalWrite(PWR, LOW);
+        } else {
+          digitalWrite(PWR, HIGH);
+        }
+        state = 2;
+      } else {        
+        if (checkTemperature() >= 180) {
+          resetTime();
+          state = 3;
+        }
+        
+        digitalWrite(PWR, HIGH);
+      } 
+      lcd.print("Soaking...");
       break;
     case 3:
-      if (checkTemperature() >= 200) {
+      if (printTime() >= 45) {
         digitalWrite(PWR, LOW);
         state = 4;
-      } else {
-        lcd.print("Reflow...");
       }
+      lcd.print("Reflow...");
       break;
     case 4:
       if (checkTemperature() >= 180) {
         lcd.print("Reflow...");
+        state = 4;
       } else {
         resetTime();
         lcd.print("Turn Off Button!");
@@ -144,9 +164,10 @@ void printSerial() {
 double checkTemperature() {
   double c = thermocouple.readCelsius();
   if (isnan(c)) {
-    return 0.0;
+    return prevTemp;
   } else {
-    return c;
+    prevTemp = c;
+    return prevTemp;
   }
 }
 
