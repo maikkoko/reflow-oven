@@ -1,3 +1,7 @@
+/***********************************************************
+   Optimized for SMD291AX
+   Sn63/ Pb37
+***********************************************************/
 #include <SPI.h>
 #include "Adafruit_MAX31855.h"
 #include "Wire.h"
@@ -23,8 +27,6 @@ LiquidCrystal lcd(10, 9, 8, 7, 6, 5);
 /**** Definitions for Buttons and LEDs ****/
 #define BTN 11 //Button
 #define PWR 13 //Relay Switch
-
-int ctr = 0;
 
 /*********************************************
 / states:
@@ -73,7 +75,7 @@ void loop() {
     }
   }
   
-  delay(500);
+  delay(750);
 }
 
 /**** State Handler Subroutine ****/
@@ -89,7 +91,7 @@ void stateHandler() {
       lcd.print("Starting...");
       break;
     case 1:
-      if (checkTemperature() >= 150) {
+      if (checkTemperature() >= 100) {
         resetTime();
         state = 2;
       } 
@@ -100,15 +102,27 @@ void stateHandler() {
       }
       break;
     case 2:
-      if (printTime() < 100) {
-        if (checkTemperature() >= 165) {
+      if (printTime() < 90) {
+        if (printTime() <= 10) {
+          digitalWrite(PWR, LOW);
+        } else if (printTime() <= 20) {
+          digitalWrite(PWR, HIGH);
+        } else if (printTime() <= 30) {
+          digitalWrite(PWR, LOW);
+        } else if (printTime() <= 40) {
+          digitalWrite(PWR, HIGH);
+        } else if (printTime() <= 50) {
+           digitalWrite(PWR, LOW); 
+        } else if (printTime() <= 65) {
+          digitalWrite(PWR, HIGH);
+        } else if (printTime() <= 75) {
           digitalWrite(PWR, LOW);
         } else {
           digitalWrite(PWR, HIGH);
         }
-        state = 2;
+        state = 2;       
       } else {        
-        if (checkTemperature() >= 180) {
+        if (checkTemperature() >= 183) {
           resetTime();
           state = 3;
         }
@@ -118,14 +132,14 @@ void stateHandler() {
       lcd.print("Soaking...");
       break;
     case 3:
-      if (printTime() >= 45) {
+      if (printTime() >= 60) {
         digitalWrite(PWR, LOW);
         state = 4;
       }
       lcd.print("Reflow...");
       break;
     case 4:
-      if (checkTemperature() >= 180) {
+      if (printTime() <= 70) {
         lcd.print("Reflow...");
         state = 4;
       } else {
